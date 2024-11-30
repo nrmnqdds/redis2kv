@@ -64,15 +64,40 @@ func main() {
 		})
 	}
 
-	log.Println("Writing keys to Cloudflare KV")
-	// Store all keys in Cloudflare KV in bulk
-	kvClient.WriteWorkersKVEntries(ctx, &cloudflare.ResourceContainer{
+	kvResourceContainer := &cloudflare.ResourceContainer{
 		Level:      "accounts",
 		Identifier: os.Getenv("KV_USER_ID"),
 		Type:       "account",
-	}, cloudflare.WriteWorkersKVEntriesParams{
+	}
+
+	kvEntryParams := cloudflare.WriteWorkersKVEntriesParams{
 		NamespaceID: os.Getenv("KV_NAMESPACE_ID"),
 		KVs:         KVs,
-	},
-	)
+	}
+
+	log.Println("Writing keys to Cloudflare KV")
+	// Store all keys in Cloudflare KV in bulk
+	res, err := kvClient.WriteWorkersKVEntries(ctx, kvResourceContainer, kvEntryParams)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if res.Errors != nil {
+		log.Fatal(res.Errors)
+	}
+
+	if res.Success != true {
+		log.Fatal("Failed to write keys to Cloudflare KV")
+	}
+
+	log.Println("Keys successfully written to Cloudflare KV")
+
+	log.Println("Deleting all keys from Redis")
+	// Delete all keys from Redis
+	stat := redisClient.FlushDB(ctx)
+	if stat.Err() != nil {
+		log.Fatal(stat.Err().Error())
+	}
+
+	log.Println("All keys successfully deleted from Redis")
 }
